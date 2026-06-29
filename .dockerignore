@@ -1,0 +1,6 @@
+.git
+.github
+*.md
+CHANGELOG.md
+node_modules
+npm-debug.log

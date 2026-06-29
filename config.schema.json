@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/crunchy-pb/rust-analyzer/config.schema.json",
+  "title": "rust-analyzer Container Environment Configuration",
+  "description": "Environment variables supported by the rust-analyzer language server container.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "RA_LOG": {
+      "type": "string",
+      "title": "rust-analyzer log filter",
+      "description": "Tracing filter passed through to rust-analyzer, for example info or rust_analyzer=debug."
+    },
+    "RUST_LOG": {
+      "type": "string",
+      "title": "Rust log filter",
+      "description": "Generic Rust tracing/log filter for helper tools launched by rust-analyzer."
+    },
+    "RUST_BACKTRACE": {
+      "type": "string",
+      "title": "Rust backtraces",
+      "enum": ["0", "1", "full"],
+      "default": "0",
+      "description": "Controls whether Rust tools emit backtraces on panic."
+    },
+    "CARGO_HOME": {
+      "type": "string",
+      "title": "Cargo home",
+      "default": "/home/rust-analyzer/.cargo",
+      "description": "Cargo cache/configuration directory used by cargo, clippy, and rust-analyzer."
+    },
+    "RUSTUP_HOME": {
+      "type": "string",
+      "title": "Rustup home",
+      "description": "Optional rustup state directory if a mounted toolchain is provided."
+    }
+  }
+}

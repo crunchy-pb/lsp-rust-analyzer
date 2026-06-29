@@ -1,0 +1,25 @@
+{
+  "name": "rust-analyzer-container",
+  "version": "1.0.0",
+  "private": false,
+  "description": "Container packaging for the rust-analyzer language server.",
+  "license": "MIT OR Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "release": "semantic-release",
+    "config-schema:label": "node scripts/config-schema-label.mjs",
+    "config-schema:check": "node -e \"const {execFileSync}=require('node:child_process'); JSON.parse(execFileSync('npm',['run','--silent','config-schema:label'],{encoding:'utf8'}));\""
+  },
+  "devDependencies": {
+    "@semantic-release/changelog": "6.0.3",
+    "@semantic-release/git": "10.0.1",
+    "@semantic-release/github": "11.0.4",
+    "@semantic-release/npm": "13.1.0",
+    "semantic-release": "24.2.7"
+  },
+  "engines": {
+    "node": "22.16.0",
+    "npm": "10.9.2"
+  },
+  "packageManager": "npm@10.9.2"
+}

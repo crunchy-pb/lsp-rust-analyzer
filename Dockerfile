@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM rust:1.96.0-slim-bookworm@sha256:4732ca96fd086cb9be682050c3f0176288eebaac2b80aa2bcefccfaf198e1950 AS toolchain
+FROM rust:1.97.1-slim-bookworm@sha256:99e09cb2284e2ddbb73a995deee3e91783fd04d177602ccf6eab326d778ee777 AS toolchain
 
 RUN rustup component add --toolchain 1.96.0 rust-analyzer rust-src
 

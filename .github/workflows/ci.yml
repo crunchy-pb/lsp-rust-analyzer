@@ -35,7 +35,7 @@ jobs:
           echo "manifest=$(npm run --silent manifest:label)" >> "$GITHUB_OUTPUT"
           echo "schema=$(npm run --silent config-schema:label)" >> "$GITHUB_OUTPUT"
       - name: Build and load test image
-        uses: docker/build-push-action@v6.18.0
+        uses: docker/build-push-action@v7.3.0
         with:
           context: .
           load: true
@@ -145,7 +145,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push image
-        uses: docker/build-push-action@v6.18.0
+        uses: docker/build-push-action@v7.3.0
         with:
           context: .
           push: true

@@ -2,20 +2,22 @@
   "name": "rust-analyzer-container",
   "version": "1.0.0",
   "private": false,
-  "description": "Container packaging for the rust-analyzer language server.",
-  "license": "MIT OR Apache-2.0",
+  "description": "Deterministic, offline, syntax-first rust-analyzer LSP package for pb.",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "release": "semantic-release",
+    "manifest:label": "node scripts/manifest-label.mjs",
     "config-schema:label": "node scripts/config-schema-label.mjs",
-    "config-schema:check": "node -e \"const {execFileSync}=require('node:child_process'); JSON.parse(execFileSync('npm',['run','--silent','config-schema:label'],{encoding:'utf8'}));\""
+    "labels:check": "node -e \"const {execFileSync}=require('node:child_process'); for (const name of ['manifest:label','config-schema:label']) JSON.parse(execFileSync('npm',['run','--silent',name],{encoding:'utf8'}));\"",
+    "package:check": "python3 scripts/validate-package.py && npm run labels:check"
   },
   "devDependencies": {
     "@semantic-release/changelog": "6.0.3",
     "@semantic-release/git": "10.0.1",
-    "@semantic-release/github": "11.0.4",
-    "@semantic-release/npm": "13.1.0",
-    "semantic-release": "24.2.7"
+    "@semantic-release/github": "12.0.9",
+    "@semantic-release/npm": "13.1.5",
+    "semantic-release": "25.0.8"
   },
   "engines": {
     "node": "22.16.0",

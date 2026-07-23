@@ -3,16 +3,16 @@ name: CI
 on:
   pull_request:
   push:
-    branches:
-      - main
-      - work
 
 permissions:
   contents: read
 
+env:
+  TEST_IMAGE: pb/lsp-rust-analyzer:ci
+
 jobs:
   checks:
-    name: CI checks
+    name: Validate and smoke test
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
@@ -21,24 +21,41 @@ jobs:
         uses: actions/setup-node@v4.4.0
         with:
           node-version: 22.16.0
-      - name: Install dependencies
-        run: npm install --ignore-scripts
-      - name: Validate integration config schema label
-        run: npm run config-schema:check
+          cache: npm
+      - name: Install release dependencies
+        run: npm ci --ignore-scripts
+      - name: Validate package sources
+        run: npm run package:check
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3.10.0
-      - name: Generate integration config schema label
-        id: integration-config-schema
-        run: echo "schema=$(npm run --silent config-schema:label)" >> "$GITHUB_OUTPUT"
-      - name: Build image
+      - name: Generate embedded metadata
+        id: metadata
+        shell: bash
+        run: |
+          echo "manifest=$(npm run --silent manifest:label)" >> "$GITHUB_OUTPUT"
+          echo "schema=$(npm run --silent config-schema:label)" >> "$GITHUB_OUTPUT"
+      - name: Build and load test image
         uses: docker/build-push-action@v6.18.0
         with:
           context: .
+          load: true
           push: false
-          load: false
-          tags: rust-analyzer:ci
+          platforms: linux/amd64
+          tags: ${{ env.TEST_IMAGE }}
           build-args: |
-            INTEGRATION_CONFIG_SCHEMA=${{ steps.integration-config-schema.outputs.schema }}
+            PB_LSP_MANIFEST=${{ steps.metadata.outputs.manifest }}
+            INTEGRATION_CONFIG_SCHEMA=${{ steps.metadata.outputs.schema }}
+      - name: Inspect image metadata
+        run: ./scripts/validate-package.py --image "$TEST_IMAGE"
+      - name: Run isolated LSP smoke test twice
+        run: |
+          ./scripts/smoke.py --image "$TEST_IMAGE"
+          ./scripts/smoke.py --image "$TEST_IMAGE"
+      - name: Assert smoke resources were removed
+        shell: bash
+        run: |
+          test -z "$(docker ps --all --quiet --filter name=pb-ra-smoke-)"
+          test -z "$(docker network ls --quiet --filter name=pb-ra-smoke-)"
 
   release:
     name: Semantic release
@@ -49,8 +66,6 @@ jobs:
       contents: write
       issues: write
       pull-requests: write
-      packages: write
-      id-token: write
     outputs:
       new_release_published: ${{ steps.release-result.outputs.new_release_published }}
       version: ${{ steps.release-result.outputs.version }}
@@ -63,8 +78,9 @@ jobs:
         uses: actions/setup-node@v4.4.0
         with:
           node-version: 22.16.0
+          cache: npm
       - name: Install dependencies
-        run: npm install --ignore-scripts
+        run: npm ci --ignore-scripts
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -72,6 +88,7 @@ jobs:
         run: npm run release
       - name: Detect release result
         id: release-result
+        shell: bash
         run: |
           release_tag=$(git tag --points-at HEAD --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+' | head -n 1 || true)
           if [ -n "$release_tag" ]; then
@@ -82,13 +99,14 @@ jobs:
           fi
 
   docker-publish:
-    name: Publish Docker image
+    name: Publish multi-architecture image
     needs: release
     if: needs.release.outputs.new_release_published == 'true'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
+      id-token: write
     steps:
       - name: Checkout release tag
         uses: actions/checkout@v4.2.2
@@ -98,13 +116,28 @@ jobs:
         uses: actions/setup-node@v4.4.0
         with:
           node-version: 22.16.0
+          cache: npm
       - name: Install dependencies
-        run: npm install --ignore-scripts
+        run: npm ci --ignore-scripts
+      - name: Validate released package sources
+        run: npm run package:check
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3.6.0
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3.10.0
-      - name: Generate integration config schema label
-        id: integration-config-schema
-        run: echo "schema=$(npm run --silent config-schema:label)" >> "$GITHUB_OUTPUT"
+      - name: Generate image metadata
+        id: metadata
+        shell: bash
+        env:
+          VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          echo "manifest=$(npm run --silent manifest:label)" >> "$GITHUB_OUTPUT"
+          echo "schema=$(npm run --silent config-schema:label)" >> "$GITHUB_OUTPUT"
+          echo "revision=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "short_revision=$(git rev-parse --short=12 HEAD)" >> "$GITHUB_OUTPUT"
+          echo "major=${VERSION%%.*}" >> "$GITHUB_OUTPUT"
+          version_without_major=${VERSION#*.}
+          echo "minor=${VERSION%%.*}.${version_without_major%%.*}" >> "$GITHUB_OUTPUT"
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3.4.0
         with:
@@ -116,13 +149,20 @@ jobs:
         with:
           context: .
           push: true
-          provenance: true
+          platforms: linux/amd64,linux/arm64
+          provenance: mode=max
           sbom: true
           tags: |
-            ghcr.io/${{ github.repository }}:${{ needs.release.outputs.version }}
-            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/crunchy-pb/lsp-rust-analyzer:latest
+            ghcr.io/crunchy-pb/lsp-rust-analyzer:${{ needs.release.outputs.version }}
+            ghcr.io/crunchy-pb/lsp-rust-analyzer:${{ steps.metadata.outputs.major }}
+            ghcr.io/crunchy-pb/lsp-rust-analyzer:${{ steps.metadata.outputs.minor }}
+            ghcr.io/crunchy-pb/lsp-rust-analyzer:sha-${{ steps.metadata.outputs.short_revision }}
           build-args: |
-            INTEGRATION_CONFIG_SCHEMA=${{ steps.integration-config-schema.outputs.schema }}
+            PB_LSP_MANIFEST=${{ steps.metadata.outputs.manifest }}
+            INTEGRATION_CONFIG_SCHEMA=${{ steps.metadata.outputs.schema }}
+            IMAGE_VERSION=${{ needs.release.outputs.version }}
           labels: |
             org.opencontainers.image.version=${{ needs.release.outputs.version }}
-            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.revision=${{ steps.metadata.outputs.revision }}
+            org.opencontainers.image.source=https://github.com/crunchy-pb/lsp-rust-analyzer

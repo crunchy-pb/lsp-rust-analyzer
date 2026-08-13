@@ -4,7 +4,7 @@ FROM rust:1.96.0-slim-bookworm@sha256:4732ca96fd086cb9be682050c3f0176288eebaac2b
 
 RUN rustup component add --toolchain 1.96.0 rust-analyzer rust-src
 
-FROM debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818 AS runtime
+FROM debian:bookworm-slim@sha256:abd67ffcfa541b485a3dff59865ab629aa048a6c613e639d36e7456b0b229241 AS runtime
 
 ARG PB_LSP_MANIFEST
 ARG INTEGRATION_CONFIG_SCHEMA
